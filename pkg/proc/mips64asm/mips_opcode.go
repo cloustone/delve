@@ -1,5 +1,210 @@
 package mips64asm
 
+/* Short hand so the lines aren't too long.  */
+const (
+	LC   = INSN_LOAD_COPROC
+	UBD  = INSN_UNCOND_BRANCH_DELAY
+	CBD  = INSN_COND_BRANCH_DELAY
+	CM   = INSN_COPROC_MOVE
+	CLD  = (INSN_LOAD_MEMORY | INSN_COPROC_MEMORY_DELAY)
+	CBL  = INSN_COND_BRANCH_LIKELY
+	NODS = INSN_NO_DELAY_SLOT
+	TRAP = INSN_NO_DELAY_SLOT
+	LM   = INSN_LOAD_MEMORY
+	SM   = INSN_STORE_MEMORY
+
+	WR_1  = INSN_WRITE_1
+	WR_2  = INSN_WRITE_2
+	RD_1  = INSN_READ_1
+	RD_2  = INSN_READ_2
+	RD_3  = INSN_READ_3
+	RD_4  = INSN_READ_4
+	RD_31 = INSN2_READ_GPR_31
+	MOD_1 = (WR_1 | RD_1)
+	MOD_2 = (WR_2 | RD_2)
+
+	WR_31 = INSN_WRITE_GPR_31
+	WR_CC = INSN_WRITE_COND_CODE
+	RD_CC = INSN_READ_COND_CODE
+	RD_C0 = INSN_COP
+	RD_C1 = INSN_COP
+	RD_C2 = INSN_COP
+	RD_C3 = INSN_COP
+	WR_C0 = INSN_COP
+	WR_C1 = INSN_COP
+	WR_C2 = INSN_COP
+	WR_C3 = INSN_COP
+	UDI   = INSN_UDI
+	CP    = INSN_COP
+
+	WR_HI  = INSN_WRITE_HI
+	RD_HI  = INSN_READ_HI
+	MOD_HI = WR_HI | RD_HI
+
+	WR_LO  = INSN_WRITE_LO
+	RD_LO  = INSN_READ_LO
+	MOD_LO = WR_LO | RD_LO
+
+	WR_HILO  = WR_HI | WR_LO
+	RD_HILO  = RD_HI | RD_LO
+	MOD_HILO = WR_HILO | RD_HILO
+
+	RD_SP  = INSN2_READ_SP
+	WR_SP  = INSN2_WRITE_SP
+	MOD_SP = (RD_SP | WR_SP)
+
+	IS_M = INSN_MULT
+
+	WR_MACC = INSN2_WRITE_MDMX_ACC
+	RD_MACC = INSN2_READ_MDMX_ACC
+
+	RD_pc = INSN2_READ_PC
+	FS    = INSN2_FORBIDDEN_SLOT
+
+	I1    = INSN_ISA1
+	I2    = INSN_ISA2
+	I3    = INSN_ISA3
+	I4    = INSN_ISA4
+	I5    = INSN_ISA5
+	I32   = INSN_ISA32
+	I64   = INSN_ISA64
+	I33   = INSN_ISA32R2
+	I34   = INSN_ISA32R3
+	I36   = INSN_ISA32R5
+	I37   = INSN_ISA32R6
+	I65   = INSN_ISA64R2
+	I66   = INSN_ISA64R3
+	I68   = INSN_ISA64R5
+	I69   = INSN_ISA64R6
+	I3_32 = INSN_ISA3_32
+	I3_33 = INSN_ISA3_32R2
+	I4_32 = INSN_ISA4_32
+	I4_33 = INSN_ISA4_32R2
+	I5_33 = INSN_ISA5_32R2
+
+	/* MIPS64 MIPS-3D ASE support.  */
+	M3D = ASE_MIPS3D
+
+	/* MIPS32 SmartMIPS ASE support.  */
+	SMT = ASE_SMARTMIPS
+
+	/* MIPS64 MDMX ASE support.  */
+	MX = ASE_MDMX
+
+	IL2E = (INSN_LOONGSON_2E)
+	IL2F = (INSN_LOONGSON_2F)
+
+	P3 = INSN_4650
+	L1 = INSN_4010
+	V1 = (INSN_4100 | INSN_4111 | INSN_4120)
+	T3 = INSN_3900
+	/* Emotion Engine MIPS r5900. */
+	EE      = INSN_5900
+	M1      = INSN_10000
+	SB1     = INSN_SB1
+	N411    = INSN_4111
+	N412    = INSN_4120
+	N5      = (INSN_5400 | INSN_5500)
+	N54     = INSN_5400
+	N55     = INSN_5500
+	IOCT    = (INSN_OCTEON | INSN_OCTEONP | INSN_OCTEON2 | INSN_OCTEON3)
+	IOCTP   = (INSN_OCTEONP | INSN_OCTEON2 | INSN_OCTEON3)
+	IOCT2   = (INSN_OCTEON2 | INSN_OCTEON3)
+	IOCT3   = INSN_OCTEON3
+	XLR     = INSN_XLR
+	IAMR2   = INSN_INTERAPTIV_MR2
+	IVIRT   = ASE_VIRT
+	IVIRT64 = ASE_VIRT64
+
+	G1 = (T3 | EE)
+	G2 = (T3)
+	G3 = EE
+
+	/* 64 bit CPU with 32 bit FPU (single float). */
+	SF = EE
+
+	/* Support for 128 bit MMI instructions. */
+	MMI = EE
+
+	/* 64 bit CPU with only 32 bit multiplication/division support. */
+	M32 = EE
+
+	/* Support for VU0 Coprocessor instructions */
+	VU0   = EE
+	VU0CH = INSN2_VU0_CHANNEL_SUFFIX
+
+	/* MIPS DSP ASE support.
+	   NOTE:
+	   1. MIPS DSP ASE includes 4 accumulators ($ac0 - $ac3).  $ac0 is the pair
+	   of original HI and LO.  $ac1, $ac2 and $ac3 are new registers, and have
+	   the same structure as $ac0 (HI + LO).  For DSP instructions that write or
+	   read accumulators (that may be $ac0), we add WR_a (WR_HILO) or RD_a
+	   (RD_HILO) attributes, such that HILO dependencies are maintained
+	   conservatively.
+
+	   2. For some mul. instructions that use integer registers as destinations
+	   but destroy HI+LO as side-effect, we add WR_HILO to their attributes.
+
+	   3. MIPS DSP ASE includes a new DSP control register, which has 6 fields
+	   (ccond, outflag, EFI, c, scount, pos).  Many DSP instructions read or write
+	   certain fields of the DSP control register.  For simplicity, we decide not
+	   to track dependencies of these fields.
+	   However, "bposge32" is a branch instruction that depends on the "pos"
+	   field.  In order to make sure that GAS does not reorder DSP instructions
+	   that writes the "pos" field and "bposge32", we add DSP_VOLA
+	   (INSN_NO_DELAY_SLOT) attribute to those instructions that write the "pos"
+	   field.  */
+
+	WR_a     = WR_HILO /* Write dsp accumulators (reuse WR_HILO)  */
+	RD_a     = RD_HILO /* Read dsp accumulators (reuse RD_HILO)  */
+	MOD_a    = WR_a | RD_a
+	DSP_VOLA = INSN_NO_DELAY_SLOT
+	D32      = ASE_DSP
+	D33      = ASE_DSPR2
+	D34      = ASE_DSPR3
+	D64      = ASE_DSP64
+
+	/* MIPS MT ASE support.  */
+	MT32 = ASE_MT
+
+	/* MIPS MCU (MicroController) ASE support.  */
+	MC = ASE_MCU
+
+	/* MIPS Enhanced VA Scheme.  */
+	EVA   = ASE_EVA
+	EVAR6 = ASE_EVA_R6
+
+	/* TLB invalidate instruction support.  */
+	TLBINV = ASE_EVA
+
+	/* MSA support.  */
+	MSA   = ASE_MSA
+	MSA64 = ASE_MSA64
+
+	/* eXtended Physical Address (XPA) support.  */
+	XPA   = ASE_XPA
+	XPAVZ = ASE_XPA_VIRT
+
+	/* Cyclic redundancy check instruction (CRC) support.  */
+	CRC   = ASE_CRC
+	CRC64 = ASE_CRC64
+
+	/* Global INValidate (GINV) support.  */
+	GINV = ASE_GINV
+
+	/* Loongson MultiMedia extensions Instructions (MMI) support.  */
+	LMMI = ASE_LOONGSON_MMI
+
+	/* Loongson Content Address Memory (CAM) support.  */
+	LCAM = ASE_LOONGSON_CAM
+
+	/* Loongson EXTensions (EXT) instructions support.  */
+	LEXT = ASE_LOONGSON_EXT
+
+	/* Loongson EXTensions R2 (EXT2) instructions support.  */
+	LEXT2 = ASE_LOONGSON_EXT2
+)
+
 //This structure holds information for a particular instruction.
 type mipsOpcode struct {
 	// The name of the instruction.
@@ -15,7 +220,7 @@ type mipsOpcode struct {
 	// actual opcode anded with the match field equals the opcode field,
 	// then we have found the correct instruction.  If pinfo is
 	// INSN_MACRO, then this field is the macro identifier.
-	mask uint32
+	mask int
 	// For a macro, this is INSN_MACRO.  Otherwise, it is a collection
 	// of bits describing the instruction, notably any relevant hazard
 	// information.
@@ -27,10 +232,10 @@ type mipsOpcode struct {
 	membership uint32
 	// A collection of bits describing the ASE of which this instruction
 	// or macro is a member
-	uint32 ase
+	ase uint32
 	// A collection of bits describing the instruction sets of which this
 	// instruction or macro is not a member
-	uint32 exclusions
+	exclusions uint32
 }
 
 // Return true if MO is an instruction that requires 32-bit encoding
@@ -42,7 +247,7 @@ func mipsOpcode32bit(opc *mipsOpcode) bool {
    them first.  The assemblers uses a hash table based on the
    instruction name anyhow.  */
 /* name,		args,		match,	    mask,	pinfo,          	pinfo2,		membership,	ase,	exclusions */
-const mipsBuiltinOpcodes = []mipsOpcode{
+var mipsBuiltinOpcodes = []mipsOpcode{
 	{"pref", "k,+j(b)", 0x7c000035, 0xfc00007f, RD_3, 0, I37, 0, 0},
 	{"pref", "k,o(b)", 0xcc000000, 0xfc000000, RD_3 | LM, 0, I4_32 | G3, 0, I37},
 	{"pref", "k,A(b)", 0, int(M_PREF_AB), INSN_MACRO, 0, I4_32 | G3, 0, 0},

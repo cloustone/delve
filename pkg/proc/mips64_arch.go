@@ -20,9 +20,9 @@ const (
 
 var mips64BreakInstruction = []byte{0x0, 0x0, 0x20, 0xd4}
 
-// ARM64Arch returns an initialized ARM64
+// Mips64Arch returns an initialized Mips64
 // struct.
-func ARM64Arch(goos string) *Arch {
+func Mips64Arch(goos string) *Arch {
 	return &Arch{
 		Name:                             "mips64",
 		ptrSize:                          8,
@@ -30,7 +30,7 @@ func ARM64Arch(goos string) *Arch {
 		breakpointInstruction:            mips64BreakInstruction,
 		breakInstrMovesPC:                false,
 		derefTLS:                         false,
-		prologues:                        prologuesARM64,
+		prologues:                        prologuesMips64,
 		fixFrameUnwindContext:            mips64FixFrameUnwindContext,
 		switchStack:                      mips64SwitchStack,
 		regSize:                          mips64RegSize,
@@ -131,8 +131,9 @@ func mips64FixFrameUnwindContext(fctxt *frame.FrameContext, pc uint64, bi *Binar
 }
 
 const mips64cgocallSPOffsetSaveSlot = 0x8
-const prevG0schedSPOffsetSaveSlot = 0x10
-const spAlign = 16
+
+//const prevG0schedSPOffsetSaveSlot = 0x10
+//const spAlign = 16
 
 func mips64SwitchStack(it *stackIterator, callFrameRegs *op.DwarfRegisters) bool {
 	if it.frame.Current.Fn != nil {
@@ -240,7 +241,7 @@ func mips64RegSize(regnum uint64) int {
 }
 
 // The mapping between hardware registers and DWARF registers is specified
-// in the DWARF for the ARM® Architecture page 7,
+// in the DWARF for the Mips® Architecture page 7,
 // Table 1
 // http://infocenter.arm.com/help/topic/com.arm.doc.ihi0040b/IHI0040B_aadwarf.pdf
 var mips64DwarfToHardware = map[int]mips64asm.Reg{
@@ -325,7 +326,7 @@ var mips64NameToDwarf = func() map[string]int {
 	return r
 }()
 
-func maxArm64DwarfRegister() int {
+func maxMips64DwarfRegister() int {
 	max := int(mips64DwarfIPRegNum)
 	for i := range mips64DwarfToHardware {
 		if i > max {
@@ -336,7 +337,7 @@ func maxArm64DwarfRegister() int {
 }
 
 func mips64RegistersToDwarfRegisters(staticBase uint64, regs Registers) op.DwarfRegisters {
-	dregs := make([]*op.DwarfRegister, maxArm64DwarfRegister()+1)
+	dregs := make([]*op.DwarfRegister, maxMips64DwarfRegister()+1)
 
 	dregs[mips64DwarfIPRegNum] = op.DwarfRegisterFromUint64(regs.PC())
 	dregs[mips64DwarfSPRegNum] = op.DwarfRegisterFromUint64(regs.SP())

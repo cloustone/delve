@@ -4,6 +4,10 @@
 
 package proc
 
+import (
+	"github.com/go-delve/delve/pkg/proc/mips64asm"
+)
+
 func mips64AsmDecode(asmInst *AsmInstruction, mem []byte, regs Registers, memrw MemoryReadWriter, bi *BinaryInfo) error {
 	asmInst.Size = 4
 	asmInst.Bytes = mem[:asmInst.Size]
@@ -26,12 +30,12 @@ func mips64AsmDecode(asmInst *AsmInstruction, mem []byte, regs Registers, memrw 
 		asmInst.Kind = JmpInstruction
 	}
 
-	asmInst.DestLoc = resolveCallArgARM64(&inst, asmInst.Loc.PC, asmInst.AtPC, regs, memrw, bi)
+	asmInst.DestLoc = resolveCallArgMips64(&inst, asmInst.Loc.PC, asmInst.AtPC, regs, memrw, bi)
 
 	return nil
 }
 
-func resolveCallArgARM64(inst *mips64asm.Inst, instAddr uint64, currentGoroutine bool, regs Registers, mem MemoryReadWriter, bininfo *BinaryInfo) *Location {
+func resolveCallArgMips64(inst *mips64asm.Inst, instAddr uint64, currentGoroutine bool, regs Registers, mem MemoryReadWriter, bininfo *BinaryInfo) *Location {
 	switch inst.Op {
 	case mips64asm.BL, mips64asm.BLR, mips64asm.B, mips64asm.BR:
 		//ok
@@ -68,7 +72,7 @@ func resolveCallArgARM64(inst *mips64asm.Inst, instAddr uint64, currentGoroutine
 
 // Possible stacksplit prologues are inserted by stacksplit in
 // $GOROOT/src/cmd/internal/obj/mips64/obj7.go.
-var prologuesARM64 []opcodeSeq
+var prologuesMips64 []opcodeSeq
 
 func init() {
 	var tinyStacksplit = opcodeSeq{uint64(mips64asm.MOV), uint64(mips64asm.CMP), uint64(mips64asm.B)}
@@ -76,13 +80,13 @@ func init() {
 	var bigStacksplit = opcodeSeq{uint64(mips64asm.CMP), uint64(mips64asm.B), uint64(mips64asm.ADD), uint64(mips64asm.SUB), uint64(mips64asm.MOV), uint64(mips64asm.CMP), uint64(mips64asm.B)}
 	var unixGetG = opcodeSeq{uint64(mips64asm.LDR)}
 
-	prologuesARM64 = make([]opcodeSeq, 0, 3)
+	prologuesMips64 = make([]opcodeSeq, 0, 3)
 	for _, getG := range []opcodeSeq{unixGetG} {
 		for _, stacksplit := range []opcodeSeq{tinyStacksplit, smallStacksplit, bigStacksplit} {
 			prologue := make(opcodeSeq, 0, len(getG)+len(stacksplit))
 			prologue = append(prologue, getG...)
 			prologue = append(prologue, stacksplit...)
-			prologuesARM64 = append(prologuesARM64, prologue)
+			prologuesMips64 = append(prologuesMips64, prologue)
 		}
 	}
 }
