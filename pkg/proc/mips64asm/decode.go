@@ -1,7 +1,6 @@
 package mips64asm
 
 import (
-	"encoding/binary"
 	"fmt"
 )
 
@@ -23,7 +22,7 @@ func Decode(src []byte) (inst Inst, err error) {
 		return Inst{}, errShort
 	}
 
-	x := binary.LittleEndian.Uint32(src)
+	//x := binary.LittleEndian.Uint32(src)
 
 	return Inst{}, errUnknown
 }

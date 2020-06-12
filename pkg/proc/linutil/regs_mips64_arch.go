@@ -163,6 +163,7 @@ func (fpregs *Mips64PtraceFpRegs) Decode() (regs []proc.Register) {
 }
 
 func (fpregs *Mips64PtraceFpRegs) Byte() []byte {
-	fpregs.Regs = make([]uint64, 32)
-	return fpregs.Regs[:]
+	//	fpregs.Regs = make([]uint64, 32)
+	//	return fpregs.Regs[:]
+	return nil
 }

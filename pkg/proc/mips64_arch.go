@@ -1,16 +1,6 @@
 package proc
 
-import (
-	"bytes"
-	"encoding/binary"
-	"fmt"
-	"io"
-	"strings"
-
-	"github.com/go-delve/delve/pkg/dwarf/frame"
-	"github.com/go-delve/delve/pkg/dwarf/op"
-)
-
+/*
 const (
 	mips64DwarfIPRegNum uint64 = 32
 	mips64DwarfSPRegNum uint64 = 31
@@ -422,3 +412,5 @@ func mips64DwarfRegisterToString(i int, reg *op.DwarfRegister) (name string, flo
 	}
 	return name, false, fmt.Sprintf("%#x", reg.Bytes)
 }
+
+*/

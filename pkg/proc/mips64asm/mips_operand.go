@@ -1,11 +1,11 @@
 package mips64asm
 
-type mipsOperandType uint16
+type MipsOperandType uint16
 
 /* Enumerates the various types of MIPS operand.  */
 const (
 	/* Described by mips_int_operand.  */
-	OP_INT mipsOperandType = iota
+	OP_INT MipsOperandType = iota
 
 	/* Described by mips_mapped_int_operand.  */
 	OP_MAPPED_INT
@@ -105,12 +105,12 @@ const (
 	OP_NON_ZERO_REG
 )
 
-type mipsRegOperandType uint16
+type MipsRegOperandType uint16
 
 /* Enumerates the types of MIPS register.  */
 const (
 	/* General registers $0-$31.  Software names like $at can also be used.  */
-	OP_REG_GP mipsRegOperandType = iota
+	OP_REG_GP MipsRegOperandType = iota
 
 	/* Floating-point registers $f0-$f31.  */
 	OP_REG_FP
@@ -154,12 +154,22 @@ const (
 	OP_REG_MSA_CTRL
 )
 
+type MipsOperand interface {
+	Type() MipsOperandType
+	Size() uint16
+	Lsb() uint16
+}
+
 /* Base class for all operands.  */
 type mipsOperand struct {
-	operandType mipsOperandType // The type of the operand
+	operandType MipsOperandType // The type of the operand
 	size        uint16          // The operand occupies SIZE bits of the instruction, starting at LSB
 	lsb         uint16
 }
+
+func (mp mipsOperand) Type() MipsOperandType { return mp.operandType }
+func (mp mipsOperand) Size() uint16          { return mp.size }
+func (mp mipsOperand) Lsb() uint16           { return mp.lsb }
 
 /* Describes an integer operand with a regular encoding pattern.  */
 type mipsIntOperand struct {
@@ -178,7 +188,7 @@ type mipsIntOperand struct {
 	     that 0 encodes 8.
 
 	   - { { ... }, 0, 1, 3 } means that N encodes (N + 1) << 3.  */
-	maxVal   uint16
+	maxVal   uint32
 	bias     uint16
 	shift    uint16
 	printHex bool // True if the operand should be printed as hex rather than decimal
@@ -209,7 +219,7 @@ type mipsMsbOperand struct {
 /* Describes a single register operand.  */
 type mipsRegOperand struct {
 	mipsOperand
-	regType mipsRegOperandType /* The type of register.  */
+	regType MipsRegOperandType /* The type of register.  */
 	regMap  []byte
 	/* If nonnull, REG_MAP[N] gives the register associated with encoding N,
 	   otherwise the encoding is the same as the register number.  */
@@ -228,7 +238,7 @@ type mipsCheckPrevOperand struct {
 /* Describes an operand that encodes a pair of registers.  */
 type mipsRegPairOperand struct {
 	mipsOperand
-	regType mipsRegOperandType /* The type of register.  */
+	regType MipsRegOperandType /* The type of register.  */
 	reg1Map []byte             /* Encoding N represents REG1_MAP[N], REG2_MAP[N].  */
 	reg2Map []byte
 }
@@ -253,50 +263,50 @@ type mipsPcrelOperand struct {
 }
 
 /* Return true if the assembly syntax allows OPERAND to be omitted.  */
-func mipsOptionalOperand(operand *mipsOperand) bool {
-	return (operand.operandType == OP_OPTIONAL_REG || operand.operandType == OP_REPEAT_PREV_REG)
+func mipsOptionalOperand(operand MipsOperand) bool {
+	return (operand.Type() == OP_OPTIONAL_REG || operand.Type() == OP_REPEAT_PREV_REG)
 }
 
 // Return a version of INSN in which the field specified by OPERAND has value UVAL.
-func mipsInsertOperand(operand *mipsOperand, insn uint32, uval uint32) uint32 {
+func mipsInsertOperand(operand MipsOperand, insn uint32, uval uint32) uint32 {
 	var mask uint32
-	mask = (1 << operand.size) - 1
+	mask = (1 << operand.Size()) - 1
 	// insn &= ~(mask << operand.lsb) // TODO
-	insn |= (uval & mask) << operand.lsb
+	insn |= (uval & mask) << operand.Lsb()
 	return insn
 }
 
 // Extract OPERAND from instruction INSN
-func mipsExtractOperand(operand *mipsOperand, insn uint) uint {
-	return (insn >> operand.lsb) & ((1 << operand.size) - 1)
+func mipsExtractOperand(operand MipsOperand, insn uint) uint {
+	return (insn >> operand.Lsb()) & ((1 << operand.Size()) - 1)
 }
 
 // UVAL is the value encoded by OPERAND.  Return it in signed form.
-func mipsSignedOperand(operand *mipsOperand, uval uint) int {
+func mipsSignedOperand(operand MipsOperand, uval uint) int {
 	var sign_bit, mask uint
-	mask = (1 << operand.size) - 1
-	sign_bit = 1 << (operand.size - 1)
+	mask = (1 << operand.Size()) - 1
+	sign_bit = 1 << (operand.Size() - 1)
 	return int(((uval + sign_bit) & mask) - sign_bit)
 }
 
 // Return the integer that OPERAND encodes as UVAL
-func mipsDecodeIntOperand(operand *mipsIntOperand, uval uint16) uint16 {
-	uval |= (operand.maxVal - uval) & -(1 << operand.size)
-	uval += uint16(operand.bias)
+func mipsDecodeIntOperand(operand *mipsIntOperand, uval uint32) uint16 {
+	uval |= (operand.maxVal - uint32(uval)) & -(1 << operand.size)
+	uval += uint32(operand.bias)
 	uval <<= operand.shift
-	return uval
+	return uint16(uval)
 }
 
 // Return the maximum value that can be encoded by OPERAND.
-func mipsIntOperandMax(operand *mipsIntOperand) int {
-	return int((operand.maxVal + operand.bias) << operand.shift)
+func mipsIntOperandMax(operand *mipsIntOperand) uint32 {
+	return (operand.maxVal + uint32(operand.bias)) << operand.shift
 }
 
 // Return the minimum value that can be encoded by OPERAND.
-func mipsIntOperandMin(operand *mipsIntOperand) int {
-	var mask uint
+func mipsIntOperandMin(operand *mipsIntOperand) uint32 {
+	var mask uint32
 	mask = (1 << operand.size) - 1
-	return mipsIntOperandMax(operand) - int(mask<<operand.shift)
+	return mipsIntOperandMax(operand) - uint32(mask<<operand.shift)
 }
 
 // Return the register that OPERAND encodes as UVAL
@@ -324,135 +334,101 @@ func mipsDecodePcrelOperand(operand *mipsPcrelOperand, base_pc uint32, uval uint
 	return addr
 }
 
-func xIntBias(size, lsb, maxVal, bial, shift uint16, printHex bool) *mipsOperand {
+func xIntBias(size, lsb uint16, maxVal uint32, bial, shift uint16, printHex bool) MipsOperand {
 	return &mipsIntOperand{
 		mipsOperand{OP_INT, size, lsb}, maxVal, bial, shift, printHex,
 	}
 }
 
-func xIntAdj(size, lsb, maxVal, shift int, printHex bool) mipsOperand {
+func xIntAdj(size, lsb uint16, maxVal uint32, shift uint16, printHex bool) MipsOperand {
 	return xIntBias(size, lsb, maxVal, 0, shift, printHex)
 }
 
-func xUint(size, lsb int) mipsOperand {
+func xUint(size, lsb uint16) MipsOperand {
 	return xIntAdj(size, lsb, (1<<(size))-1, 0, false)
 }
 
-func xSint(size, lsb int) mipsOperand {
+func xSint(size, lsb uint16) MipsOperand {
 	return xIntAdj(size, lsb, (1<<((size)-1))-1, 0, false)
 }
 
-func xHint(size, lsb int) mipsOperand {
+func xHint(size, lsb uint16) MipsOperand {
 	return xIntAdj(size, lsb, (1<<(size))-1, 0, true)
 }
 
-func xBit(size, lsb, bias int) mipsOperand {
-	return mipsIntOperand{
-		{OP_INT, size, lsb}, (1 << (size)) - 1, bias, 0, true,
+func xBit(size, lsb, bias uint16) MipsOperand {
+	return &mipsIntOperand{
+		mipsOperand{OP_INT, size, lsb}, (1 << (size)) - 1, bias, 0, true,
 	}
 }
 
-func xMappedInt(size, lsb, maps int, printHex bool) mipsOperand {
-	return mipsMappedIntOperand{
-		{OP_MAPPED_INT, size, lsb}, maps, printHex,
+func xMappedInt(size, lsb uint16, maps int, printHex bool) MipsOperand {
+	return &mipsMappedIntOperand{
+		mipsOperand{OP_MAPPED_INT, size, lsb}, maps, printHex,
 	}
 }
 
-func xMsb(size, lsb, bias, addLsb, opSize int) mipsOperand {
-	return mipsMsbOperand{
-		{OP_MSB, size, lsb}, bias, addLsb, opSize,
+func xMsb(size, lsb uint16, bias int, addLsb bool, opSize uint32) MipsOperand {
+	return &mipsMsbOperand{
+		mipsOperand{OP_MSB, size, lsb}, bias, addLsb, opSize,
 	}
 }
 
-func xReg(size, lsb, bank int) mipsOperand {
-	switch bank {
-	case GP:
-		op = OP_REG_GP
-	default:
-	}
+func xReg(size, lsb uint16, bank MipsRegOperandType) MipsOperand {
 	return mipsRegOperand{
-		{OP_REG, size, lsb}, op, 0,
+		mipsOperand{OP_REG, size, lsb}, bank, nil,
 	}
 }
 
-func xOptionalReg2(size, lsb, bank int) mipsOperand {
-	switch bank {
-	case GP:
-		op = OP_REG_GP
-	default:
-	}
-	return mipsRegOperand{
-		{OP_OPTIONAL_REG, size, lsb}, op, 0,
+func xOptionalReg2(size, lsb uint16, bank MipsRegOperandType) MipsOperand {
+	return &mipsRegOperand{
+		mipsOperand{OP_OPTIONAL_REG, size, lsb}, bank, nil,
 	}
 }
 
-func xMappedReg(size, lsb, bank, maps int) mipsOperand {
-	switch bank {
-	case GP:
-		op = OP_REG_GP
-	default:
-	}
-	return mipsRegOperand{
-		{OP_REG, size, lsb}, op, maps,
+func xMappedReg(size, lsb uint16, bank MipsRegOperandType, maps uint16) MipsOperand {
+	return &mipsRegOperand{
+		mipsOperand{OP_REG, size, lsb}, bank, nil,
 	}
 }
 
-func xOptionalReg(size, lsb, bank, maps int) mipsOperand {
-	switch bank {
-	case GP:
-		op = OP_REG_GP
-	default:
-	}
-	return mipsRegOperand{
-		{OP_OPTIONAL_REG, size, lsb}, op, maps,
+func xOptionalReg(size, lsb uint16, bank MipsRegOperandType, maps []byte) MipsOperand {
+	return &mipsRegOperand{
+		mipsOperand{OP_OPTIONAL_REG, size, lsb}, bank, maps,
 	}
 }
 
-func xRegPair(szie, lsb, bank, maps int) mipsOperand {
-	switch bank {
-	case GP:
-		op = OP_REG_GP
-	default:
-	}
+func xRegPair(size, lsb uint16, bank MipsRegOperandType, maps []byte) MipsOperand {
 	return mipsRegPairOperand{
-		{OP_REG_PAIR, size, lsb}, op, MAP1, MAP2,
+		mipsOperand{OP_REG_PAIR, size, lsb}, bank, nil, nil,
 	}
 }
 
-func xPcrel(size, lsb, isSigned, shift, alignLog2 int, includeIsaBit, flipIsaBit bool) mipsOperand {
+func xPcrel(size, lsb, isSigned, shift, alignLog2 uint16, includeIsaBit, flipIsaBit bool) MipsOperand {
 	return mipsPcrelOperand{
-		{{OP_PCREL, size, lsb},
-			(1 << ((size) - (isSigned))) - 1, 0, shift, true},
-		alignLog2, includeIsaBit, flipIsaBit,
+		mipsOperand{OP_PCREL, size, lsb}, alignLog2, includeIsaBit, flipIsaBit,
 	}
 }
 
-func xJump(size, lsb, shift int) mipsOperand {
-	return xPcrel(size, lsb, false, shift, size+shift, true, false)
+func xJump(size, lsb, shift uint16) MipsOperand {
+	return xPcrel(size, lsb, 0, shift, size+shift, true, false)
 }
 
-func xJalx(size, lsb, shift int) mipsOperand {
-	return xPcrel(size, lsb, false, shift, size+shift, true, true)
+func xJalx(size, lsb, shift uint16) MipsOperand {
+	return xPcrel(size, lsb, 0, shift, size+shift, true, true)
 }
 
-func xBranch(size, lsb, shift int) mipsOperand {
-	return xPcrel(size, lsb, true, shift, 0, true, false)
+func xBranch(size, lsb, shift uint16) MipsOperand {
+	return xPcrel(size, lsb, 1, shift, 0, true, false)
 }
 
-func xSpecial(size, lsb, tp int) mipsOperand {
-	var op int
-	switch tp {
-	case OP_TYPE1:
-		op = OP_TYPE
-	default:
-	}
-
-	return mipsOperand{op, size, lsb}
+func xSpecial(size, lsb uint16, tp MipsOperandType) MipsOperand {
+	return mipsOperand{tp, size, lsb}
 }
 
-func xPrevCheck(size, lsb int, gtOK, ltOK, eqOK, zeroOK bool) mipsOperand {
+func xPrevCheck(size, lsb uint16, gtOK, ltOK, eqOK, zeroOK bool) MipsOperand {
 	return mipsCheckPrevOperand{
-		{OP_CHECK_PREV, size, lsb}, gtOK, ltOK, eqOK, zeroOK,
+		mipsOperand{OP_CHECK_PREV, size, lsb}, gtOK, ltOK, eqOK, zeroOK,
 	}
 }
 
@@ -463,7 +439,7 @@ var (
 )
 
 // Return the mips_operand structure for the operand at the beginning of P
-func decodeMipsOperand(p []byte) *mipsOperand {
+func decodeMipsOperand(p []byte) MipsOperand {
 	switch p[0] {
 	case '-':
 		switch p[1] {
@@ -472,13 +448,13 @@ func decodeMipsOperand(p []byte) *mipsOperand {
 		case 'b':
 			return xIntAdj(18, 0, 131071, 3, false)
 		case 'd':
-			return xSpecial(0, 0, REPEAT_DEST_REG)
+			return xSpecial(0, 0, OP_REPEAT_DEST_REG)
 		case 'm':
-			return xSpecial(20, 6, SAVE_RESTORE_LIST)
+			return xSpecial(20, 6, OP_SAVE_RESTORE_LIST)
 		case 's':
-			return xSpecial(5, 21, NON_ZERO_REG)
+			return xSpecial(5, 21, OP_NON_ZERO_REG)
 		case 't':
-			return xSpecial(5, 16, NON_ZERO_REG)
+			return xSpecial(5, 16, OP_NON_ZERO_REG)
 		case 'u':
 			return xPrevCheck(5, 16, true, false, false, false)
 		case 'v':
@@ -490,9 +466,9 @@ func decodeMipsOperand(p []byte) *mipsOperand {
 		case 'y':
 			return xPrevCheck(5, 21, false, true, false, false)
 		case 'A':
-			return xPcrel(19, 0, true, 2, 2, false, false)
+			return xPcrel(19, 0, 1, 2, 2, false, false)
 		case 'B':
-			return xPcrel(18, 0, true, 3, 3, false, false)
+			return xPcrel(18, 0, 1, 3, 3, false, false)
 		}
 		break
 
@@ -507,17 +483,17 @@ func decodeMipsOperand(p []byte) *mipsOperand {
 		case '4':
 			return xHint(20, 6)
 		case '5':
-			return xReg(5, 6, VF)
+			return xReg(5, 6, OP_REG_VF)
 		case '6':
-			return xReg(5, 11, VF)
+			return xReg(5, 11, OP_REG_VF)
 		case '7':
-			return xReg(5, 16, VF)
+			return xReg(5, 16, OP_REG_VF)
 		case '8':
-			return xReg(5, 6, VI)
+			return xReg(5, 6, OP_REG_VI)
 		case '9':
-			return xReg(5, 11, VI)
+			return xReg(5, 11, OP_REG_VI)
 		case '0':
-			return xReg(5, 16, VI)
+			return xReg(5, 16, OP_REG_VI)
 
 		case 'A':
 			return xBit(5, 6, 0) /* (0 .. 31) */
@@ -538,13 +514,13 @@ func decodeMipsOperand(p []byte) *mipsOperand {
 		case 'J':
 			return xHint(10, 11)
 		case 'K':
-			return xSpecial(4, 21, VU0_MATCH_SUFFIX)
+			return xSpecial(4, 21, OP_VU0_MATCH_SUFFIX)
 		case 'L':
-			return xSpecial(2, 21, VU0_SUFFIX)
+			return xSpecial(2, 21, OP_VU0_SUFFIX)
 		case 'M':
-			return xSpecial(2, 23, VU0_SUFFIX)
+			return xSpecial(2, 23, OP_VU0_SUFFIX)
 		case 'N':
-			return xSpecial(2, 0, VU0_MATCH_SUFFIX)
+			return xSpecial(2, 0, OP_VU0_MATCH_SUFFIX)
 		case 'O':
 			return xUint(3, 6)
 		case 'P':
@@ -552,7 +528,7 @@ func decodeMipsOperand(p []byte) *mipsOperand {
 		case 'Q':
 			return xSint(10, 6)
 		case 'R':
-			return xSpecial(0, 0, PC)
+			return xSpecial(0, 0, OP_PC)
 		case 'S':
 			return xMsb(5, 11, 0, false, 63) /* (0 .. 31), 64-bit op */
 		case 'T':
@@ -566,7 +542,7 @@ func decodeMipsOperand(p []byte) *mipsOperand {
 		case 'X':
 			return xBit(5, 16, 32) /* (32 .. 63) */
 		case 'Z':
-			return xReg(5, 0, FP)
+			return xReg(5, 0, OP_REG_FP)
 
 		case 'a':
 			return xSint(8, 6)
@@ -575,51 +551,51 @@ func decodeMipsOperand(p []byte) *mipsOperand {
 		case 'c':
 			return xIntAdj(9, 6, 255, 4, false) /* (-256 .. 255) << 4 */
 		case 'd':
-			return xReg(5, 6, MSA)
+			return xReg(5, 6, OP_REG_MSA)
 		case 'e':
-			return xReg(5, 11, MSA)
+			return xReg(5, 11, OP_REG_MSA)
 		case 'f':
 			return xIntAdj(15, 6, 32767, 3, true)
 		case 'g':
 			return xSint(5, 6)
 		case 'h':
-			return xReg(5, 16, MSA)
+			return xReg(5, 16, OP_REG_MSA)
 		case 'i':
 			return xJalx(26, 0, 2)
 		case 'j':
 			return xSint(9, 7)
 		case 'k':
-			return xReg(5, 6, GP)
+			return xReg(5, 6, OP_REG_GP)
 		case 'l':
-			return xReg(5, 6, MSA_CTRL)
+			return xReg(5, 6, OP_REG_MSA_CTRL)
 		case 'm':
-			return xReg(0, 0, R5900_ACC)
+			return xReg(0, 0, OP_REG_R5900_ACC)
 		case 'n':
-			return xReg(5, 11, MSA_CTRL)
+			return xReg(5, 11, OP_REG_MSA_CTRL)
 		case 'o':
-			return xSpecial(4, 16, IMM_INDEX)
+			return xSpecial(4, 16, OP_IMM_INDEX)
 		case 'p':
 			return xBit(5, 6, 0) /* (0 .. 31), 32-bit op */
 		case 'q':
-			return xReg(0, 0, R5900_Q)
+			return xReg(0, 0, OP_REG_R5900_Q)
 		case 'r':
-			return xReg(0, 0, R5900_R)
+			return xReg(0, 0, OP_REG_R5900_R)
 		case 's':
 			return xMsb(5, 11, 0, false, 31) /* (0 .. 31) */
 		case 't':
-			return xReg(5, 16, COPRO)
+			return xReg(5, 16, OP_REG_COPRO)
 		case 'u':
-			return xSpecial(3, 16, IMM_INDEX)
+			return xSpecial(3, 16, OP_IMM_INDEX)
 		case 'v':
-			return xSpecial(2, 16, IMM_INDEX)
+			return xSpecial(2, 16, OP_IMM_INDEX)
 		case 'w':
-			return xSpecial(1, 16, IMM_INDEX)
+			return xSpecial(1, 16, OP_IMM_INDEX)
 		case 'x':
 			return xBit(5, 16, 0) /* (0 .. 31) */
 		case 'y':
-			return xReg(0, 0, R5900_I)
+			return xReg(0, 0, OP_REG_R5900_I)
 		case 'z':
-			return xReg(5, 0, GP)
+			return xReg(5, 0, OP_REG_GP)
 
 		case '~':
 			return xBit(2, 6, 1) /* (1 .. 4) */
@@ -636,9 +612,9 @@ func decodeMipsOperand(p []byte) *mipsOperand {
 		case '^':
 			return xSint(10, 11) /* (-512 .. 511) */
 		case '&':
-			return xSpecial(0, 0, IMM_INDEX)
+			return xSpecial(0, 0, OP_IMM_INDEX)
 		case '*':
-			return xSpecial(5, 16, REG_INDEX)
+			return xSpecial(5, 16, OP_REG_INDEX)
 		case '|':
 			return xBit(8, 16, 0) /* (0 .. 255) */
 		case ':':
@@ -648,7 +624,7 @@ func decodeMipsOperand(p []byte) *mipsOperand {
 		case '"':
 			return xBranch(21, 0, 2)
 		case ' ':
-			return xSpecial(10, 16, SAME_RS_RT) // TODO
+			return xSpecial(10, 16, OP_SAME_RS_RT) // TODO
 		case '\\':
 			return xBit(2, 8, 0) /* (0 .. 3) */
 		}
@@ -671,9 +647,9 @@ func decodeMipsOperand(p []byte) *mipsOperand {
 	case '$':
 		return xUint(1, 4)
 	case '*':
-		return xReg(2, 18, ACC)
+		return xReg(2, 18, OP_REG_ACC)
 	case '&':
-		return xReg(2, 13, ACC)
+		return xReg(2, 13, OP_REG_ACC)
 	case '~':
 		return xSint(12, 0)
 	case '\\':
@@ -694,69 +670,69 @@ func decodeMipsOperand(p []byte) *mipsOperand {
 	case '6':
 		return xHint(5, 21)
 	case '7':
-		return xReg(2, 11, ACC)
+		return xReg(2, 11, OP_REG_ACC)
 	case '8':
 		return xHint(6, 11)
 	case '9':
-		return xReg(2, 21, ACC)
+		return xReg(2, 21, OP_REG_ACC)
 
 	case 'B':
 		return xHint(20, 6)
 	case 'C':
 		return xHint(25, 0)
 	case 'D':
-		return xReg(5, 6, FP)
+		return xReg(5, 6, OP_REG_FP)
 	case 'E':
-		return xReg(5, 16, COPRO)
+		return xReg(5, 16, OP_REG_COPRO)
 	case 'G':
-		return xReg(5, 11, COPRO)
+		return xReg(5, 11, OP_REG_COPRO)
 	case 'H':
 		return xUint(3, 0)
 	case 'J':
 		return xHint(19, 6)
 	case 'K':
-		return xReg(5, 11, HW)
+		return xReg(5, 11, OP_REG_HW)
 	case 'M':
-		return xReg(3, 8, CCC)
+		return xReg(3, 8, OP_REG_CCC)
 	case 'N':
-		return xReg(3, 18, CCC)
+		return xReg(3, 18, OP_REG_CCC)
 	case 'O':
 		return xUint(3, 21)
 	case 'P':
-		return xSpecial(5, 1, PERF_REG)
+		return xSpecial(5, 1, OP_PERF_REG)
 	case 'Q':
-		return xSpecial(10, 16, MDMX_IMM_REG)
+		return xSpecial(10, 16, OP_MDMX_IMM_REG)
 	case 'R':
-		return xReg(5, 21, FP)
+		return xReg(5, 21, OP_REG_FP)
 	case 'S':
-		return xReg(5, 11, FP)
+		return xReg(5, 11, OP_REG_FP)
 	case 'T':
-		return xReg(5, 16, FP)
+		return xReg(5, 16, OP_REG_FP)
 	case 'U':
-		return xSpecial(10, 11, CLO_CLZ_DEST)
+		return xSpecial(10, 11, OP_CLO_CLZ_DEST)
 	case 'V':
-		return xOptionalReg(5, 11, FP)
+		return xOptionalReg(5, 11, OP_REG_FP, nil)
 	case 'W':
-		return xOptionalReg(5, 16, FP)
+		return xOptionalReg(5, 16, OP_REG_FP, nil)
 	case 'X':
-		return xReg(5, 6, VEC)
+		return xReg(5, 6, OP_REG_VEC)
 	case 'Y':
-		return xReg(5, 11, VEC)
+		return xReg(5, 11, OP_REG_VEC)
 	case 'Z':
-		return xReg(5, 16, VEC)
+		return xReg(5, 16, OP_REG_VEC)
 
 	case 'a':
 		return xJump(26, 0, 2)
 	case 'b':
-		return xReg(5, 21, GP)
+		return xReg(5, 21, OP_REG_GP)
 	case 'c':
 		return xHint(10, 16)
 	case 'd':
-		return xReg(5, 11, GP)
+		return xReg(5, 11, OP_REG_GP)
 	case 'e':
 		return xUint(3, 22)
 	case 'g':
-		return xReg(5, 11, COPRO)
+		return xReg(5, 11, OP_REG_COPRO)
 	case 'h':
 		return xHint(5, 11)
 	case 'i':
@@ -772,21 +748,22 @@ func decodeMipsOperand(p []byte) *mipsOperand {
 	case 'q':
 		return xHint(10, 6)
 	case 'r':
-		return xOptionalReg(5, 21, GP)
+		return xOptionalReg(5, 21, OP_REG_GP, nil)
 	case 's':
-		return xReg(5, 21, GP)
+		return xReg(5, 21, OP_REG_GP)
 	case 't':
-		return xReg(5, 16, GP)
+		return xReg(5, 16, OP_REG_GP)
 	case 'u':
 		return xHint(16, 0)
 	case 'v':
-		return xOptionalReg(5, 21, GP)
+		return xOptionalReg(5, 21, OP_REG_GP, nil)
 	case 'w':
-		return xOptionalReg(5, 16, GP)
+		return xOptionalReg(5, 16, OP_REG_GP, nil)
 	case 'x':
-		return xReg(0, 0, GP)
+		return xReg(0, 0, OP_REG_GP)
 	case 'z':
-		return xMappedReg(0, 0, GP, reg_0_map)
+		//return xMappedReg(0, 0, OP_REG_GP, reg_0_map)
+		return xMappedReg(0, 0, OP_REG_GP, 0) // TODO
 	}
 	return nil
 }
