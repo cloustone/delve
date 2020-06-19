@@ -23,6 +23,5 @@ func Decode(src []byte) (inst Inst, err error) {
 	}
 
 	//x := binary.LittleEndian.Uint32(src)
-
 	return Inst{}, errUnknown
 }

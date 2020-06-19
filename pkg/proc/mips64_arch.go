@@ -1,6 +1,5 @@
 package proc
 
-/*
 const (
 	mips64DwarfIPRegNum uint64 = 32
 	mips64DwarfSPRegNum uint64 = 31
@@ -8,6 +7,7 @@ const (
 	mips64DwarfBPRegNum uint64 = 29
 )
 
+/*
 var mips64BreakInstruction = []byte{0x0, 0x0, 0x20, 0xd4}
 
 // Mips64Arch returns an initialized Mips64
@@ -269,7 +269,7 @@ var mips64DwarfToHardware = map[int]mips64asm.Reg{
 	31: mips64asm.SP,
 
 	64: mips64asm.V0,
-	65: mips64asm.V1,
+	65: mips64asm.VV1,
 	66: mips64asm.V2,
 	67: mips64asm.V3,
 	68: mips64asm.V4,
@@ -412,5 +412,4 @@ func mips64DwarfRegisterToString(i int, reg *op.DwarfRegister) (name string, flo
 	}
 	return name, false, fmt.Sprintf("%#x", reg.Bytes)
 }
-
 */

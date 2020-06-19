@@ -5,29 +5,33 @@
 package proc
 
 /*
+import (
+	"github.com/go-delve/delve/pkg/proc/mips64asm"
+)
+
 func mips64AsmDecode(asmInst *AsmInstruction, mem []byte, regs Registers, memrw MemoryReadWriter, bi *BinaryInfo) error {
-		asmInst.Size = 4
-		asmInst.Bytes = mem[:asmInst.Size]
+	asmInst.Size = 4
+	asmInst.Bytes = mem[:asmInst.Size]
 
-		inst, err := mips64asm.Decode(mem)
-		if err != nil {
-			asmInst.Inst = (*mips64ArchInst)(nil)
-			return err
-		}
+	inst, err := mips64asm.Decode(mem)
+	if err != nil {
+		asmInst.Inst = (*mips64ArchInst)(nil)
+		return err
+	}
 
-		asmInst.Inst = (*mips64ArchInst)(&inst)
-		asmInst.Kind = OtherInstruction
+	asmInst.Inst = (*mips64ArchInst)(&inst)
+	asmInst.Kind = OtherInstruction
 
-		switch inst.Op {
-		case mips64asm.BL, mips64asm.BLR:
-			asmInst.Kind = CallInstruction
-		case mips64asm.RET, mips64asm.ERET:
-			asmInst.Kind = RetInstruction
-		case mips64asm.B, mips64asm.BR:
-			asmInst.Kind = JmpInstruction
-		}
+	switch inst.Op {
+	case mips64asm.BL, mips64asm.BLR:
+		asmInst.Kind = CallInstruction
+	case mips64asm.RET, mips64asm.ERET:
+		asmInst.Kind = RetInstruction
+	case mips64asm.B, mips64asm.BR:
+		asmInst.Kind = JmpInstruction
+	}
 
-		asmInst.DestLoc = resolveCallArgMips64(&inst, asmInst.Loc.PC, asmInst.AtPC, regs, memrw, bi)
+	//	asmInst.DestLoc = resolveCallArgMips64(&inst, asmInst.Loc.PC, asmInst.AtPC, regs, memrw, bi)
 	return nil
 }
 
@@ -112,5 +116,4 @@ func (inst *mips64ArchInst) OpcodeEquals(op uint64) bool {
 	}
 	return uint64(inst.Op) == op
 }
-
 */
